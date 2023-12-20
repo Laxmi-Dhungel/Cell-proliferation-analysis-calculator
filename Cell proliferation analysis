@@ -1,0 +1,163 @@
+
+#This is code for proliferation experiments
+user_input=True
+while user_input:
+    #Input file name
+    print("Please make sure of the following: ")
+    print("1. Please make sure your file is saved in .csv format")
+    print("2. This code is made to generate graphs for percentage survival for proliferation experiments")
+    #Input file name
+    inf=input("Please enter the file name: ") #Asking user to input file name
+    #Read file
+    f=open(inf, 'r')
+    control_name=input("Please enter the control name: ")
+    #import pandas and numpy
+    import pandas as pd
+    import numpy as np
+    #Read input csv file
+    data=pd.read_csv(f,  sep=',')
+    
+    #Calculate mean of control
+    mean_control_df = data[control_name].mean()
+    
+    #Calculate percentage survival based on control mean
+    percentage_survival=(data/mean_control_df)*100
+    #print(percentage_survival)
+    
+    #Calculate mean percentage survival for each treatment
+    
+    mean_percentage_survival=percentage_survival.mean()
+    #print(mean_percentage_survival)
+    
+    #calculate standard error
+    sd_percentage_survival=percentage_survival.std()
+    #print(sd_percentage_survival)
+    count_percentage_survival_element=len(percentage_survival)
+    
+    squareroot_count_percentage_survival_element=np.sqrt(count_percentage_survival_element)
+    
+    #print(squareroot_count_percentage_survival_element)
+    se_percentage_survival=sd_percentage_survival/squareroot_count_percentage_survival_element
+   
+    #Get coulmn headers name
+    column_headers = list(data.columns.values)
+    
+    ###Outlier determination
+    seventy_fifth_quartile=percentage_survival.quantile(0.75)
+    twenty_fifth_quartile=percentage_survival.quantile(0.25)
+    inter_quartile_range=seventy_fifth_quartile-twenty_fifth_quartile
+    
+    upper_limit=seventy_fifth_quartile+(1.5*inter_quartile_range)
+    lower_limit=twenty_fifth_quartile-(1.5*inter_quartile_range)
+    #print(upper_limit)
+    #print(lower_limit)
+    
+    
+    outlier_lower={}
+    outlier_higher={}
+    #first iterating over each index and row. Then iterating over each columns to select if there is any outlier and put them on dictionary.
+    for lab, row in percentage_survival.iterrows():
+        for columns in percentage_survival.columns:
+            if row[columns]<lower_limit[columns]:
+                outlier_lower[columns]=lab
+            if row[columns]>upper_limit[columns]:
+                outlier_higher[columns]=lab   
+            
+                
+    
+                
+                
+           
+                
+                
+    #Printing sample with outliers from their respective dictionaries           
+    for k, v in outlier_lower.items():
+        print("Sample " + k + " has an outlier that is lesser than (median-1.5*IQR) at position: " + str(v+1))
+    for k, v in outlier_higher.items():
+        print("Sample " + k + " has an outlier that is higher than (median-1.5*IQR) at position: " + str(v+1))
+        
+    
+    ###Missing values did not effect the data analysis
+    #Determine p value using student t test and put the values and sample name into dictionary
+    from scipy import stats
+    t_stat, p_val = stats.ttest_ind(data[control_name], data)
+    
+    p_value_dict={'col_names':column_headers, 'p_values':p_val}
+    
+    #Create a new dataframe with sample name and p values using p_value_dict
+    new_pvalue_table=pd.DataFrame(p_value_dict)
+    
+    
+   #append asteriks for different p values into P_values_list using if else statement
+    P_values_list=[]
+    for lab, row in  new_pvalue_table.iterrows():
+        if row['p_values']<=0.0001:
+            P_values_list.append('****')
+            
+        elif row['p_values']<=0.001:
+            P_values_list.append('***')
+           
+            
+        elif row['p_values']<=0.01:
+            P_values_list.append('**')
+            
+        
+            
+        elif row['p_values']<=0.05:
+            P_values_list.append('*')
+            
+        else:
+            P_values_list.append('NS')
+            
+    np_P_values_list=np.array(P_values_list) # make numpy array for P-values_list
+    np_column_headers=np.array(column_headers)
+    np_column_names_p_values=np.column_stack((np_column_headers,  np_P_values_list))
+   
+    #import matplot lib for figure
+    import matplotlib.pyplot as plt
+    barplot_data=plt.bar( column_headers, mean_percentage_survival, color=("blue", "green", "orange", "purple", "yellow", "grey", "red", "black"), yerr=se_percentage_survival, capsize=5)# column headers on x important
+    header_name=input("Please write the title for image: ")
+    x_label=input("Please enter x-axis label: ")
+    y_label=input("Please enter y-axis label: ")
+    plt.title(header_name)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+   
+    # using while loop to put asteriks on figure using plt.text
+    index = 0
+    items=column_headers
+    
+    while index < len(items):
+        if P_values_list[index]!="NS":
+            plt.text(column_headers[index], mean_percentage_survival[index]+se_percentage_survival[index], P_values_list[index], ha='center')
+        
+        index += 1
+        
+    
+    
+    
+    plt.show()
+    
+    
+    print("Statistical analysis is student t test compared to control.")
+    
+    #Outlier detection
+    
+    
+    # Asking user if they want to transport data on percentage survival to csv. 
+    csv_need_input=input("Please type 'yes' if you want to transfer the data on percentage survival to a csv file: ")   
+    if csv_need_input=='yes':
+        csv_file_name=input("Please type the name of file you want to create in .csv format: ")
+        percentage_survival.to_csv(csv_file_name)
+        
+             
+  
+            
+            
+        
+    continue_input=input("Type 'y' if you want to analyze next set of data if not type any other key: ")
+    if continue_input=='y':
+        user_input=True
+    else:
+        user_input=False
+    f.close()
